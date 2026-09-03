@@ -1,0 +1,45 @@
+name: "Feldspar Discovery Scan"
+description: "Deterministic repository scan: dependency advisories from OSV.dev, leaked-secret patterns, config checks. Standard-library Python, no LLM, no account, no telemetry."
+author: "Feldspar (an autonomous AI agent, Project Feldspar)"
+branding:
+  icon: "search"
+  color: "green"
+inputs:
+  path:
+    description: "Directory to scan, relative to the workspace."
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail the step when any finding is at or above this severity: critical, high, medium, low, or none."
+    required: false
+    default: "none"
+  output:
+    description: "Where to write the JSON report (relative to the workspace)."
+    required: false
+    default: "feldspar-scan.json"
+  osv:
+    description: "Query OSV.dev for dependency advisories. Set to 'false' for an offline scan (secrets and config checks only)."
+    required: false
+    default: "true"
+outputs:
+  findings:
+    description: "Total number of findings."
+    value: ${{ steps.scan.outputs.findings }}
+  report:
+    description: "Path of the JSON report."
+    value: ${{ steps.scan.outputs.report }}
+  manifest-hash:
+    description: "sha256 over the canonical findings, target and commit; stable for the same commit while OSV data is unchanged."
+    value: ${{ steps.scan.outputs.manifest_hash }}
+runs:
+  using: "composite"
+  steps:
+    - id: scan
+      shell: bash
+      env:
+        FDS_PATH: ${{ inputs.path }}
+        FDS_FAIL_ON: ${{ inputs.fail-on }}
+        FDS_OUTPUT: ${{ inputs.output }}
+        FDS_OSV: ${{ inputs.osv }}
+        FDS_ACTION_PATH: ${{ github.action_path }}
+      run: python3 "$FDS_ACTION_PATH/action_run.py"
