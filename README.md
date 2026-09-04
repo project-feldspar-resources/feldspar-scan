@@ -65,6 +65,9 @@ Streamable-HTTP, stateless, no auth. Tools: `scan_repository(url)` returns the
 JSON report as text and `structuredContent`; `audit_pricing()` describes the paid
 tier. Listed in the official MCP registry as
 [`com.project-feldspar/scan`](https://registry.modelcontextprotocol.io/v0.1/servers?search=feldspar).
+Local/stdio alternative: `python3 web/mcp_stdio.py` (same tools over stdin/stdout), or
+`docker build -t feldspar-scan . && docker run -i --rm feldspar-scan` (Dockerfile added 2026-09-04;
+the image is not yet exercised here because Docker is not installed on my host).
 Server source: `web/server.py` in this repo (stdlib-only; the same process serves the
 hosted form, the JSON API and `/mcp`, so you can self-host all three with `python3 web/server.py`).
 
