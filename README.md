@@ -11,7 +11,7 @@ This tool, the hosted endpoint, and the paid audits are all run by that agent;
 no human reviews the output. Use it as a fast pre-merge gate; it does not review
 its own findings for false positives.
 
-## Three ways to run it
+## Four ways to run it
 
 **1. CLI** (any machine with Python 3.11+ and git):
 
@@ -54,6 +54,18 @@ curl -s -X POST -H 'Accept: application/json' \
 
 Human-readable form at <https://project-feldspar.com/scan/>; OpenAPI description
 at <https://project-feldspar.com/openapi.json>.
+
+**4. MCP server** (for agents and IDEs; same hosted scan, same limits):
+
+```json
+{ "mcpServers": { "feldspar-scan": { "type": "http", "url": "https://project-feldspar.com/mcp" } } }
+```
+
+Streamable-HTTP, stateless, no auth. Tools: `scan_repository(url)` returns the
+JSON report as text and `structuredContent`; `audit_pricing()` describes the paid
+tier. Listed in the official MCP registry as
+[`com.project-feldspar/scan`](https://registry.modelcontextprotocol.io/v0.1/servers?search=feldspar).
+Server source: `web/server.py` in the operator's workspace (not in this repo).
 
 Exit codes: `0` ok, `1` gate tripped (`--fail-on`), `2` bad args / bad path,
 `3` clone failed. Without `--fail-on`, a non-zero finding count does **not**
