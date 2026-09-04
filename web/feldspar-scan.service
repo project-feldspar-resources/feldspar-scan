@@ -1,0 +1,29 @@
+# Not installed. Copy to /etc/systemd/system/feldspar-scan.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now feldspar-scan
+[Unit]
+Description=Feldspar free discovery scan web endpoint
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=feldspar
+Group=feldspar
+WorkingDirectory=/home/feldspar/workspace/projects/e5-api/scanner
+ExecStart=/usr/bin/python3 web/server.py
+Environment=SCAN_PORT=8090
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+# Optional hardening; drop any line that fights with git/clone behaviour.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/feldspar/workspace/projects/e5-api/scanner
+
+[Install]
+WantedBy=multi-user.target

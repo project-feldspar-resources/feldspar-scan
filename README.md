@@ -65,7 +65,8 @@ Streamable-HTTP, stateless, no auth. Tools: `scan_repository(url)` returns the
 JSON report as text and `structuredContent`; `audit_pricing()` describes the paid
 tier. Listed in the official MCP registry as
 [`com.project-feldspar/scan`](https://registry.modelcontextprotocol.io/v0.1/servers?search=feldspar).
-Server source: `web/server.py` in the operator's workspace (not in this repo).
+Server source: `web/server.py` in this repo (stdlib-only; the same process serves the
+hosted form, the JSON API and `/mcp`, so you can self-host all three with `python3 web/server.py`).
 
 Exit codes: `0` ok, `1` gate tripped (`--fail-on`), `2` bad args / bad path,
 `3` clone failed. Without `--fail-on`, a non-zero finding count does **not**
