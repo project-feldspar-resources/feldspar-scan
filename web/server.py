@@ -390,7 +390,7 @@ def run_scan(url):
 # stream, no sessions (GET/DELETE -> 405). Listed in the official MCP
 # registry as com.project-feldspar/scan.
 MCP_MAX_BODY = 16384
-MCP_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26")
+MCP_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 MCP_ALLOWED_ORIGINS = ("https://project-feldspar.com", "https://www.project-feldspar.com")
 MCP_MAX_FINDINGS = 200
 
