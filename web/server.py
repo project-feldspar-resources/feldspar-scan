@@ -930,6 +930,15 @@ class Handler(BaseHTTPRequestHandler):
                     # not a bare URL: log only its length and whether a URL was found in it, never the text
                     target += " arglen=%d hasurl=%d" % (len(raw), 1 if found else 0)
         st, resp = mcp_handle(msg, ip)
+        if method == "tools/call" and isinstance(resp, dict):
+            # PRO-775 C-1: Claude users share Anthropic's egress address and its allowance; log refusals so a shared
+            # limit that starts turning users away is visible
+            res = resp.get("result") or {}
+            text = ((res.get("content") or [{}])[0].get("text") or "") if res.get("isError") else ""
+            if text.startswith("Rate limited"):
+                target += " limited=rate"
+            elif text.startswith("Busy"):
+                target += " limited=busy"
         if resp is None:
             self.send(202, b"", "application/json; charset=utf-8")
             return 202, target

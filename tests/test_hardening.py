@@ -178,6 +178,35 @@ class InputHandlingTests(unittest.TestCase):
         self.assertTrue(response["isError"])
         self.assertIn("ask the user for the repository URL", response["content"][0]["text"])
 
+    def test_mcp_access_target_flags_refused_scans(self):
+        import io
+        server = load("hardening_server_limited", "web/server.py")
+
+        class Fake:
+            def __init__(self, url):
+                body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                                   "params": {"name": "scan_repository", "arguments": {"url": url}}}).encode()
+                self.headers = {"Content-Length": str(len(body))}
+                self.rfile = io.BytesIO(body)
+                self.sent = []
+
+            def client_ip(self):
+                return "192.0.2.1"
+
+            def send(self, status, body, ctype=""):
+                self.sent.append(status)
+
+        with mock.patch.object(server, "rate_check", return_value=False):
+            st, target = server.Handler.handle_mcp(Fake("Scan https://github.com/owner/repo"))
+        self.assertEqual(st, 200)
+        self.assertEqual(target, "mcp:tools/call:scan_repository url=https://github.com/owner/repo "
+                                 "arglen=34 hasurl=1 limited=rate")
+        doc = {"findings": [], "summary": {}}
+        with mock.patch.object(server, "rate_check", return_value=True), mock.patch.object(
+                server, "run_scan", return_value=(doc, None)):
+            st, target = server.Handler.handle_mcp(Fake("https://github.com/owner/repo"))
+        self.assertEqual(target, "mcp:tools/call:scan_repository url=https://github.com/owner/repo")
+
     @unittest.skipUnless(os.path.isdir("/proc"), "requires Linux process state")
     def test_web_timeout_kills_child_process(self):
         server = load("hardening_server_timeout", "web/server.py")
