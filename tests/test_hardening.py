@@ -154,6 +154,30 @@ class InputHandlingTests(unittest.TestCase):
         self.assertEqual(len(trimmed["triage"]), server.MCP_MAX_FINDINGS)
         self.assertNotIn("F-200", trimmed["triage"])
 
+    def test_mcp_scan_takes_repository_url_from_request_text(self):
+        server = load("hardening_server_url_text", "web/server.py")
+        self.assertEqual(server.repo_url_from(" https://github.com/owner/repo "), "https://github.com/owner/repo")
+        self.assertEqual(server.repo_url_from("Scan https://github.com/owner/repo."), "https://github.com/owner/repo")
+        self.assertEqual(server.repo_url_from("check (https://gitlab.com/g/p.git) and https://github.com/a/b"),
+                         "https://gitlab.com/g/p.git")
+        self.assertIsNone(server.repo_url_from("Scan https://github.com/owner/repo/tree/main"))
+        self.assertIsNone(server.repo_url_from("Scan http://github.com/owner/repo"))
+        self.assertIsNone(server.repo_url_from("Scan https://example.com/owner/repo"))
+        self.assertIsNone(server.repo_url_from("Scan my repository"))
+
+        doc = {"findings": [], "summary": {}}
+        with mock.patch.object(server, "run_scan", return_value=(doc, None)) as run, mock.patch.object(
+                server, "rate_check", return_value=True):
+            response = server.mcp_scan("Scan https://github.com/owner/repo please", "127.0.0.1")
+        run.assert_called_once_with("https://github.com/owner/repo")
+        self.assertFalse(response["isError"])
+
+        with mock.patch.object(server, "run_scan") as run:
+            response = server.mcp_scan("Scan my repository", "127.0.0.1")
+        run.assert_not_called()
+        self.assertTrue(response["isError"])
+        self.assertIn("ask the user for the repository URL", response["content"][0]["text"])
+
     @unittest.skipUnless(os.path.isdir("/proc"), "requires Linux process state")
     def test_web_timeout_kills_child_process(self):
         server = load("hardening_server_timeout", "web/server.py")

@@ -67,15 +67,20 @@ SEV_COLOR = {
 # PRO-92 (2026-10-13): the page shell and all base styles come from the site's brand stylesheet (/brand.css, served by
 # nginx from the same origin) and ops/site_shell.py in the workspace checkout. Only the scan-specific rules stay here.
 CSS = """
-.results{max-width:none}
+.results{max-width:var(--l3-measure)}
 .counts{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
 .counts span{display:inline-block;padding:4px 8px;border-radius:2px;background:var(--l3-fill);font:400 .875rem/1.4 var(--l3-font-ui)}
 .meta{font:400 .875rem/1.7 var(--l3-font-ui)}
 .meta code{font-size-adjust:none}
 details{margin:32px 0}
 summary{font:600 1rem/1.5 var(--l3-font-ui);cursor:pointer}
-pre.raw{max-height:28rem;overflow:auto;margin-top:16px;padding:16px 24px;border-radius:2px;background:var(--l3-fill);font-size:.8125rem}
-td{word-break:break-word}
+pre.raw>code{max-height:28rem;overflow:auto;}
+pre.raw{margin-top:16px;padding:16px 24px;border-radius:2px;background:var(--l3-fill);font-size:var(--l3-size-code-block)}
+.table-wrap table{min-width:960px}
+.table-wrap th{white-space:nowrap}
+.table-wrap td{min-width:12ch;word-break:normal;overflow-wrap:anywhere}
+.table-wrap td:first-child{white-space:nowrap}
+.table-wrap td:nth-child(7),.table-wrap td:nth-child(9){min-width:24ch}
 """
 
 WS_OPS = os.path.join(os.path.dirname(os.path.dirname(SCANNER_DIR)), "..", "ops")  # <workspace>/ops
@@ -132,7 +137,8 @@ def page(title, body, index=False, wide=False):
     tail = (f"<p class=\"muted small\">{E(DISCLOSURE)}</p>"
             "<p class=\"muted small\"><a href=\"/scan/\">New scan</a> &middot; <a href=\"https://project-feldspar.com/privacy\">Privacy</a> &middot; "
             f"<a href=\"{TERMS_FREE}\">Terms</a> (free tools: section 2.5 of the L3Digital Standard Commercial Terms v1.1)</p>")
-    content = f"<div class=\"content prose{' results' if wide else ''}\">{body}{tail}</div>"
+    # title_block() emits a complete band, then opens the reading column.
+    content = body + tail + "</div>"
     if site_shell is not None:
         return site_shell.page(title, content, description=INDEX_DESCRIPTION if index else None,
                                canonical=INDEX_CANONICAL if index else None, current="/scan/",
@@ -154,8 +160,12 @@ def page(title, body, index=False, wide=False):
 
 
 def title_block(heading, lede_html=""):
-    return (f"<div class=\"page-title\"><p class=\"eyebrow\">Feldspar · an autonomous AI agent</p><h1>{E(heading)}</h1>"
-            + (f"<p class=\"lede\">{lede_html}</p>" if lede_html else "") + "</div>")
+    if site_shell is not None:
+        band = site_shell.title_band(heading, lede_html)
+    else:
+        band = (f'<div class="page-title title-band"><div><h1>{E(heading)}</h1>' +
+                (f'<p class="lede">{lede_html}</p>' if lede_html else '') + '</div></div>')
+    return band + '<div class="content prose">'
 
 
 def cta_html():
@@ -176,7 +186,7 @@ def index_html():
         "no LLM is involved, and <strong>results are not reviewed for false "
         "positives</strong>, so test fixtures, docs examples and rotated "
         "credentials will show up.</p>"
-        "<form method=\"post\" action=\"scan\" id=\"f\" class=\"form-row panel\">"
+        "<h2 class=\"section-head\">Public repository</h2><form method=\"post\" action=\"scan\" id=\"f\" class=\"panel scan-form\">"
         "<div class=\"field\"><label for=\"url\">Public git repository URL</label>"
         "<input type=\"text\" name=\"url\" id=\"url\" required "
         "placeholder=\"https://github.com/owner/repo\" "
@@ -304,12 +314,12 @@ def results_html(doc):
             f"<td>{E(str(fixed))}</td>"
             f"<td><code>{E(str(f.get('evidence') or ''))}</code></td>"
             "</tr>")
-    table = ("<div class=\"table-wrap\" role=\"region\" aria-label=\"Findings\" tabindex=\"0\">"
+    table = ("<div class=\"scroll-frame\"><div class=\"table-wrap\" role=\"region\" aria-label=\"Findings\" tabindex=\"0\">"
              "<table><thead><tr><th>ID</th><th>Category</th><th>Severity</th>"
              "<th>Triage</th>"
              "<th>File:line</th><th>Package</th><th>Summary</th><th>Fixed in</th>"
              "<th>Evidence</th></tr></thead><tbody>"
-             + "".join(rows) + "</tbody></table></div>") if rows else \
+             + "".join(rows) + "</tbody></table></div></div>") if rows else \
             "<p>No findings. That is not a clean bill of health &mdash; see the " \
             "limits above.</p>"
     more = ""
@@ -340,12 +350,12 @@ def results_html(doc):
         f"<div class=\"counts\">{counts}</div>"
         + err_html
         + triage_block(tsummary)
-        + "<h2>Findings</h2>"
+        + "<h2 class=\"section-head\">Findings</h2>"
         + more + table
         + "<p class=\"muted\">Deterministic output only: no false-positive "
           "review, no git-history scan, no reachability analysis.</p>"
         + cta_html()
-        + f"<details><summary>Raw JSON</summary><pre class=\"raw\">{E(raw)}</pre></details>",
+        + f"<details><summary>Raw JSON</summary><pre class=\"raw\"><code role=\"region\" aria-label=\"Raw JSON\" tabindex=\"0\">{E(raw)}</code></pre></details>",
         wide=True)
 
 
@@ -505,7 +515,7 @@ def _cancel_record(entry):
 def cancel_error_html(heading, msg):
     """A cancellation error page without the scan page's sales CTA."""
     return page(heading + " — Project Feldspar",
-                title_block(heading) + "<div class=\"msg error\" role=\"alert\" data-clarity-mask=\"true\">%s</div>"
+                title_block(heading) + "<div class=\"msg error\" role=\"alert\" data-clarity-mask=\"true\"><svg class=\"status-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 8v4m0 4h.01\"/></svg><div>%s</div></div>"
                 "<p><a href=\"%s\">Back to the cancellation form</a> · or email <a href=\"mailto:support@project-feldspar.com\">"
                 "support@project-feldspar.com</a>.</p>" % (E(msg), CANCEL_PAGE))
 
@@ -516,14 +526,15 @@ def cancel_result_html(rec, rid, when, ack_sent):
                "<strong>%s</strong>. If no acknowledgement arrives within a day, write to support@project-feldspar.com quoting that reference." % E(rid)))
     body = (title_block("Cancellation received",
                         "L3Digital LLC d/b/a Project Feldspar received your cancellation on <strong>%s</strong>." % E(when)) +
-            "<div class=\"content prose\" data-clarity-mask=\"true\"><div class=\"card\"><ul>"
+            "<div class=\"cancel-receipt\" data-clarity-mask=\"true\"><div class=\"panel\"><div class=\"msg success result\" role=\"status\" tabindex=\"-1\" id=\"cancel-received\"><svg class=\"status-icon\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9 12l2 2l4 -4\"/></svg><div><ul>"
             "<li><strong>Reference:</strong> %s</li><li><strong>Order:</strong> %s</li><li><strong>Name:</strong> %s</li>"
-            "<li><strong>Message:</strong> %s</li></ul><p>%s</p></div>"
+            "<li><strong>Message:</strong> %s</li></ul><p>%s</p></div></div></div>"
             "<p>Refunds follow Schedule B of the Terms (full refund if work had not started; proportionate if you asked for an "
             "immediate start and the work was under way), to the payment method you used, within 14 days. "
             "Questions: <a href=\"mailto:support@project-feldspar.com\">support@project-feldspar.com</a>.</p></div>"
             % (E(rid), E(rec["order"]), E(rec["name"]), E(rec["message"] or "(none)"), status))
-    return page("Cancellation received — Project Feldspar", body)
+    return page("Cancellation received — Project Feldspar", body +
+                "<script>document.getElementById('cancel-received').focus();</script>")
 
 
 def run_scan(url):
@@ -617,7 +628,8 @@ MCP_TOOLS = [
             "type": "object",
             "properties": {
                 "url": {"type": "string",
-                        "description": "https://github.com/owner/repo (also gitlab.com, codeberg.org, bitbucket.org)"}
+                        "description": "The repository URL only, e.g. https://github.com/owner/repo "
+                                       "(also gitlab.com, codeberg.org, bitbucket.org)"}
             },
             "required": ["url"],
             "additionalProperties": False,
@@ -725,11 +737,30 @@ def mcp_handle(msg, ip):
     return _rpc_error(rid, -32601, "Method not found: %s" % method)
 
 
+# An LLM client sometimes passes the user's whole request ("Scan https://github.com/o/r please") as `url`.
+# Take the first supported repository URL inside the text; anything else gets an error the client can act on.
+URL_IN_TEXT_RE = re.compile(r"https://(?:github\.com|gitlab\.com|codeberg\.org|bitbucket\.org)/[^\s\"'<>`()\[\]{}]+")
+
+
+def repo_url_from(text):
+    """The repository URL in `text`: the text itself when it is one, else the first supported URL inside it, else None."""
+    text = (text or "").strip()
+    if URL_RE.match(text):
+        return text
+    for m in URL_IN_TEXT_RE.finditer(text):
+        cand = m.group(0).rstrip(".,;:!?")
+        if URL_RE.match(cand):
+            return cand
+    return None
+
+
 def mcp_scan(url, ip):
-    url = url.strip()
-    if not URL_RE.match(url):
-        return _tool_text("Invalid repository URL. Use https://github.com/owner/repo "
-                          "(github.com, gitlab.com, codeberg.org or bitbucket.org only).", True)
+    url = repo_url_from(url)
+    if url is None:
+        return _tool_text("Invalid repository URL. Pass only the repository URL, for example "
+                          "https://github.com/owner/repo (github.com, gitlab.com, codeberg.org or "
+                          "bitbucket.org only). If you do not know it, ask the user for the "
+                          "repository URL.", True)
     if not rate_check(ip):
         return _tool_text("Rate limited: %d scans per hour per client. Try again later, "
                           "or see audit_pricing for a full audit." % RATE_LIMIT, True)
@@ -889,7 +920,12 @@ class Handler(BaseHTTPRequestHandler):
             args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
             if params.get("name") == "scan_repository" and args.get("url"):
                 # the scanned URL is the one fact that separates a probe (fixed sample repo) from a user (their own)
-                target += " url=%s" % (str(args.get("url")).split() or ["-"])[0][:200]
+                raw = str(args.get("url"))
+                found = repo_url_from(raw)
+                target += " url=%s" % (found or "-")[:200]
+                if found != raw.strip():
+                    # not a bare URL: log only its length and whether a URL was found in it, never the text
+                    target += " arglen=%d hasurl=%d" % (len(raw), 1 if found else 0)
         st, resp = mcp_handle(msg, ip)
         if resp is None:
             self.send(202, b"", "application/json; charset=utf-8")

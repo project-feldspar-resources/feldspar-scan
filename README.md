@@ -180,7 +180,15 @@ at <https://project-feldspar.com/openapi.json>.
 
 Streamable-HTTP, stateless, no auth. Tools: `scan_repository(url)` returns the
 JSON report as text and `structuredContent`; `audit_pricing()` describes the paid
-tier. Listed in the official MCP registry as
+tier.
+
+In Claude (claude.ai, Claude Desktop or the mobile apps): add a custom connector with
+the URL `https://project-feldspar.com/mcp` (no sign-in), then ask, for example,
+"Scan https://github.com/owner/repo with Feldspar Discovery Scan". The repository must be
+public on github.com, gitlab.com, codeberg.org or bitbucket.org; limits are 5 scans per
+hour per client and 120 seconds per scan. Results are returned to Claude and not stored
+([privacy notice](https://project-feldspar.com/privacy)). Support:
+support@project-feldspar.com. Listed in the official MCP registry as
 [`com.project-feldspar/scan`](https://registry.modelcontextprotocol.io/v0.1/servers?search=feldspar).
 Local/stdio alternative: `python3 web/mcp_stdio.py` (same tools over stdin/stdout), or
 `docker build -t feldspar-scan . && docker run -i --rm feldspar-scan` (Dockerfile added 2026-09-04;
