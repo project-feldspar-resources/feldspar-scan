@@ -148,11 +148,54 @@ class InputHandlingTests(unittest.TestCase):
 
         with mock.patch.object(server, "run_scan", return_value=(doc, None)), mock.patch.object(
                 server, "rate_check", return_value=True):
-            response = server.mcp_scan("https://github.com/owner/repo", "127.0.0.1")
+            response = server.mcp_scan("https://github.com/owner/repo", "127.0.0.1",
+                                       {"max_findings": server.MCP_MAX_FINDINGS})
         trimmed = response["structuredContent"]
         self.assertEqual(len(trimmed["findings"]), server.MCP_MAX_FINDINGS)
         self.assertEqual(len(trimmed["triage"]), server.MCP_MAX_FINDINGS)
         self.assertNotIn("F-200", trimmed["triage"])
+
+    def test_mcp_scan_is_token_frugal_and_filterable(self):
+        server = load("hardening_server_frugal", "web/server.py")
+        sevs = ["critical"] * 3 + ["high"] * 30 + ["medium"] * 40 + ["low"] * 7
+        findings = [{"id": "F-%03d" % n, "severity": s, "category": "secret" if n % 2 else "config"}
+                    for n, s in enumerate(sevs)]
+        doc = {"findings": findings, "triage": {f["id"]: {"action": "review"} for f in findings},
+               "summary": {"total_findings": len(findings), "by_severity": {"critical": 3},
+                           "findings_by_file": {"f%04d.txt" % n: 1 for n in range(200)}},
+               "triage_summary": {"headline": "x", "config_review_by_file": {"f%04d" % n: 1 for n in range(200)}}}
+        call = lambda args=None: server.mcp_scan("https://github.com/owner/repo", "127.0.0.1", args)
+        with mock.patch.object(server, "run_scan", return_value=(doc, None)), mock.patch.object(
+                server, "rate_check", return_value=True):
+            out = call()["structuredContent"]
+            self.assertEqual([f["id"] for f in out["findings"]],
+                             ["F-%03d" % n for n in range(server.MCP_DEFAULT_FINDINGS)])
+            self.assertEqual(sorted(out["triage"]), [f["id"] for f in out["findings"]])
+            self.assertEqual(out["truncated"]["total"], len(findings))
+            self.assertEqual(out["summary"], {"total_findings": 80, "by_severity": {"critical": 3}})
+            self.assertEqual(out["omitted"], {"summary": ["findings_by_file"],
+                                              "triage_summary": ["config_review_by_file"]})
+            self.assertIn("findings_by_file", doc["summary"])   # the scan document itself is untouched
+
+            out = call({"min_severity": "high", "category": "secret", "max_findings": "100"})["structuredContent"]
+            self.assertEqual(len(out["findings"]), 16)
+            self.assertTrue(all(f["severity"] in ("critical", "high") and f["category"] == "secret"
+                                for f in out["findings"]))
+            self.assertEqual(out["filters"], {"min_severity": "high", "category": "secret"})
+            self.assertEqual(out["truncated"]["matching"], 16)
+
+            text = call({"max_findings": 200})
+            self.assertNotIn("truncated", text["structuredContent"])
+            self.assertNotIn("f0001.txt", text["content"][0]["text"])
+
+        with mock.patch.object(server, "run_scan") as run, mock.patch.object(server, "rate_check") as rate:
+            for bad in ({"max_findings": 0}, {"max_findings": 201}, {"max_findings": True},
+                        {"max_findings": "ten"}, {"min_severity": "urgent"}, {"category": "license"}):
+                response = call(bad)
+                self.assertTrue(response["isError"], bad)
+                self.assertIn("Invalid argument", response["content"][0]["text"])
+        run.assert_not_called()
+        rate.assert_not_called()
 
     def test_mcp_scan_takes_repository_url_from_request_text(self):
         server = load("hardening_server_url_text", "web/server.py")

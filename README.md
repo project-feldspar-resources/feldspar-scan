@@ -180,7 +180,12 @@ at <https://project-feldspar.com/openapi.json>.
 
 Streamable-HTTP, stateless, no auth. Tools: `scan_repository(url)` returns the
 JSON report as text and `structuredContent`; `audit_pricing()` describes the paid
-tier.
+tier. To keep answers small, `scan_repository` returns the most severe findings first,
+25 unless `max_findings` asks for more (up to 200), and takes optional `min_severity`
+(`critical`/`high`/`medium`/`low`) and `category` (`dependency-vuln`/`secret`/`config`)
+filters. The summary counts always cover every finding; summary tables longer than 600
+characters (per-file, per-package and per-advisory breakdowns) are left out and named under
+`omitted`. The web form and `POST /scan/scan` return the full report.
 
 In Claude (claude.ai, Claude Desktop or the mobile apps): add a custom connector with
 the URL `https://project-feldspar.com/mcp` (no sign-in), then ask, for example,
